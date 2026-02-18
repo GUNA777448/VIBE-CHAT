@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vibe-chat-client
+  labels:
+    app: vibe-chat-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vibe-chat-client
+  template:
+    metadata:
+      labels:
+        app: vibe-chat-client
+    spec:
+      containers:
+        - name: client
+          image: vibe-chat-client:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: VITE_API_URL
+              value: "http://vibe-chat-server:5000"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5

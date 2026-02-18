@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vibe-chat-server
+  labels:
+    app: vibe-chat-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vibe-chat-server
+  template:
+    metadata:
+      labels:
+        app: vibe-chat-server
+    spec:
+      containers:
+        - name: server
+          image: vibe-chat-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "5000"
+            - name: MONGODB_URI
+              value: "mongodb://admin:password@vibe-chat-mongodb:27017/vibe-chat?authSource=admin"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vibe-chat-secrets
+                  key: jwt-secret
+                  optional: true
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vibe-chat-secrets
+                  key: jwt-refresh-secret
+                  optional: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5

@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: vibe-chat-mongodb-prod
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-change-this-password}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - vibe-chat-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Server (Backend)
+  server:
+    build:
+      context: ./VIBE-CHAT-SERVER
+      dockerfile: Dockerfile
+      target: production
+    container_name: vibe-chat-server-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://admin:${MONGO_PASSWORD:-change-this-password}@mongodb:27017/vibe-chat?authSource=admin
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-refresh-key-change-in-production}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - vibe-chat-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5000/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Client (Frontend)
+  client:
+    build:
+      context: ./VIBE-CHAT-CLIENT
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+    container_name: vibe-chat-client-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - vibe-chat-network
+
+networks:
+  vibe-chat-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
